@@ -1,0 +1,94 @@
+version: '3.1'
+
+services:
+
+  # frontend:
+  #   build:
+  #     context: .
+  #     dockerfile: frontend/Dockerfile
+  #   hostname: vuejs
+  #   ports:
+  #     - '80:8080'
+  #   depends_on:
+  #     - app
+  #     - db
+  #   networks:
+  #     - fullstack
+
+  # nginx:
+  #   image: nginx
+  #   hostname: nginx
+  #   ports:
+  #     - '8000:8000'
+  #   volumes:
+  #     - ./config/nginx:/etc/nginx/conf.d
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - fullstack
+
+  cache:
+    image: redis:4-buster
+    container_name: shop-cache
+    ports:
+      - 6379:6379
+
+  api:
+    depends_on:
+      - postgres
+      - cache
+    build: .
+    image: shop-api
+    container_name: shop-api
+    command: gunicorn -b 0.0.0.0:80 --timeout 90 config.wsgi
+    ports:
+      - 80:80
+    environment:
+      DB_HOST: postgres
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_PORT: 5432
+      REDIS_HOST: cache
+      REDIS_PORT: 6379
+    volumes:
+      - ./shop/:/opt/api/
+
+  pgadmin:
+    depends_on:
+      - postgres
+    image: dpage/pgadmin4:latest
+    container_name: shop-pgadmin
+    ports:
+      - 81:80
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@shop.com
+      PGADMIN_DEFAULT_PASSWORD: postgres
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    environment:
+      # POSTGRES_MULTIPLE_DATABASES: bank-transf
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: $PWD/docker/data/pgdata
+      CONTAINER_TIMEZONE: America
+    networks:
+      default:
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/:/var/lib/postgresql/data/
+      # - $PWD/docker/data/pgdata:/var/lib/postgresql/data
+      # - $PWD/docker/scripts/create-databases.sh:/docker-entrypoint-initdb.d/init.sh
+      # - ./docker/data/pgdata:/var/lib/postgresql/data
+
+
+networks:
+  frontend:
+    driver: bridge         
+  backend:
+    driver: bridge
